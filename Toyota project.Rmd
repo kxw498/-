@@ -1,0 +1,186 @@
+---
+title: "Toyota Corolla prediction"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+```{r packages,warning=FALSE,message=FALSE,echo=FALSE}
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(ggfortify)
+library(patchwork)
+library(corrplot)
+p_theme <- theme(panel.background = element_blank(),
+                 panel.grid.major.y = element_line(colour = "grey"),
+                 plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r,echo=FALSE}
+data$MetColor = factor(data$MetColor)
+data$Automatic = factor(data$Automatic) 
+```
+
+```{r,echo=FALSE,fig.align='center',fig.cap="Figure1 Correlation between prices and explanatory variables"}
+cor_df <- data[,c(1:3,5,8:10)]
+cor_mm <- cor(cor_df)
+cor_sig <- cor.mtest(cor_mm)
+corrplot(corr = cor_mm,method = "ellipse",p.mat = cor_sig$p,insig = "label_sig")
+```
+
+
+```{r,fig.align='center',fig.height=2,fig.width=4}
+p1 <- ggplot(data,aes(Automatic,Price))+
+  geom_boxplot(width=0.2,notch = T,fill = c("#CD1076","#32CD32"))+
+  geom_violin(alpha=0.2,fill="#76EE00")+
+  p_theme
+
+p2 <- ggplot(data,aes(FuelType,Price))+
+  geom_boxplot(width=0.2,notch = T,fill = c("#CD1076","#CDCD00","#32CD32"))+
+  geom_violin(alpha=0.2,fill="#76EE00")+
+  p_theme
+
+p3 <-ggplot(data,aes(MetColor,Price))+
+  geom_boxplot(width=0.2,notch = T,fill = c("#CD1076","#32CD32"))+
+  geom_violin(alpha=0.2,fill="#76EE00")+
+  p_theme
+
+p1+p2+p3
+
+ggplot(data,aes(x=Price))+geom_histogram(aes(y=..density..),bins = 100,fill="#43CD80",alpha=0.5)+
+  stat_function(fun = dnorm,args = list(mean=mean(data$Price),sd=sd(data$Price)))+
+  p_theme+labs(x="Residulas")
+
+```
+
+
+
+```{r,warning=FALSE,message=FALSE}
+library(GGally)
+ggpairs(data, columns=c(1,2,3,5,10), ggplot2::aes(colour=FuelType))+p_theme
+ggpairs(data,columns=c(1,2,3,5,10),ggplot2::aes(colour=MetColor))
+ggpairs(data, columns=c(1,2,3,5,10), ggplot2::aes(colour=Automatic))+p_theme
+```
+
+```{r}
+m = lm(Price ~ ., data = data)
+summary(m)
+```
+
+```{r}
+m1 = lm(Price ~ . - Doors- MetColor, data = data) 
+summary(m1)
+```
+
+
+```{r}
+library(leaps)
+BSR = regsubsets(Price ~., data=data)
+plot(BSR, scale = "adjr2") 
+```
+
+```{r}
+coef(BSR,8)
+```
+
+
+```{r}
+null = lm(Price ~ 1, data = data)
+full = lm(Price ~ . , data = data)
+m3= step(null, scope = list(upper=full), direction = "both") 
+```
+
+
+
+```{r}
+summary(m3)
+autoplot(m3)+p_theme
+
+res3 <- m3$residuals
+ggplot(data = data_frame(res3),aes(x=res3))+geom_histogram(aes(y=..density..),bins = 100,fill="#43CD80",alpha=0.5)+
+  stat_function(fun = dnorm,args = list(mean=mean(res3),sd=sd(res3)))+
+  p_theme+labs(x="Residulas")
+```
+
+
+
+```{r}
+library(MASS)
+boxcox(m3) 
+```
+```{r}
+m4 = lm(log(Price) ~ . , data = data)
+summary(m4) 
+```
+
+```{r}
+m5=lm(Price~.^2,data)
+summary(m5) 
+```
+
+
+
+```{r}
+m6 = lm(Price ~ .^2 +I(Age^2) + I(KM^2)+I(HP^2)+I(CC^2)+I(Weight^2) + I(Doors^2)- Doors, data = data)
+summary(m6) 
+```
+
+
+m7 = lm(Price ~ Age + Weight+ HP + I(Weight^2)+I(KM^2)+I(Doors^2)+Age:CC+CC:Weight+ Age:KM+Age:Doors+ Age:Weight + Doors:Weight, data = data)
+summary(m7)
+```{r}
+m7 = lm(Price ~ Age + Weight+ HP + I(Weight^2)+I(KM^2)+I(Doors^2)+Age:CC+CC:Weight+ Age:KM+Age:Doors+ Age:Weight + Doors:Weight, data = data)
+summary(m7)
+```
+```{r}
+m8 = lm(Price ~ Age + Weight+ HP + I(Weight^2)+I(KM^2)+Age:CC+CC:Weight+ Age:KM+ Age:Weight, data = data)
+summary(m8) 
+```
+
+```{r,warning=FALSE,message=FALSE,results='hide'}
+null = lm(Price ~ 1, data = data)
+full = lm(Price ~ Age + Weight+ HP + I(Weight^2)+I(KM^2)+Age:CC+CC:Weight+ Age:KM+ Age:Weight, data = data)
+non_model3 = step(null, scope=list(upper=full), direction = "both")
+```
+
+
+```{r}
+autoplot(m8)+p_theme
+
+res8 <- m8$residuals
+ggplot(data = data_frame(res8),aes(x=res8))+geom_histogram(aes(y=..density..),bins = 100,fill="#43CD80",alpha=0.5)+
+  stat_function(fun = dnorm,args = list(mean=mean(res8),sd=sd(res8)))+
+  p_theme+labs(x="Residulas")
+```
+
+
+*this m9 is for question 2.*
+```{r}
+m9 = lm(Price ~ Age, data = data)
+summary(m9)
+confint(m9)
+```
+$$H_0: \beta_1 = 100$$
+$$H_1: \beta_1 \neq 100$$
+
+
+*this model 10 is for question 10.*
+```{r}
+m10 = lm(Price ~ Automatic, data = data)
+summary(m10)
+confint(m10)
+library(scales)
+ggplot(data,aes(Automatic,Price,fill=Automatic))+
+  geom_boxplot(width=0.2,notch = T)+
+  geom_violin(alpha=0.2)+
+  scale_y_continuous(breaks=c(0,8000,10000,12000,14000,16000,18000,20000,30000))+
+  p_theme+
+  scale_fill_manual(values = c("#CD1076","#32CD32"))
+```
+
+$$H_0: \beta_1 = 3000$$
+$$H_1: \beta_1 \neq 3000$$
+
+
